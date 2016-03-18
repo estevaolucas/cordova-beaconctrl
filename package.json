@@ -1,0 +1,20 @@
+{
+  "author": "Estevão Lucas",
+  "name": "beaconCtrl",
+  "version": "0.0.1-dev",
+  "description": "BeaconControl plugin for iOS (and Android)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/estevaolucas/cordova-beaconctrl.git"
+  },
+  "keywords": [
+    "cordova",
+    "ecosystem:cordova",
+    "cordova-ios",
+    "beacon",
+    "ibeacon",
+    "beaconctrl",
+    "beaconcontrol"
+  ],
+  "license": "MIT"
+}

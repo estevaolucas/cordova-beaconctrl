@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin id="beaconCtrl" version="0.1.0" xmlns="http://apache.org/cordova/ns/plugins/1.0">
+  <name>cordova-plugin-beaconCtrl</name>
+  <js-module name="beaconCtrl" src="www/beaconCtrl.js">
+    <clobbers target="cordova.plugins.beaconCtrl" />
+  </js-module>
+  <platform name="ios">
+    <config-file parent="/*" target="config.xml">
+      <feature name="BeaconCtrlCordovaPlugin">
+        <param name="ios-package" value="BeaconCtrlCordovaPlugin" />
+      </feature>
+    </config-file>
+
+    <header-file src="src/ios/BeaconCtrlCordovaPlugin.h" />
+    <source-file src="src/ios/BeaconCtrlCordovaPlugin.m" />
+    <header-file src="src/ios/BeaconCtrlManager.h" />
+    <source-file src="src/ios/BeaconCtrlManager.m" />
+    <header-file src="src/ios/NobotBCLBackend.h" />
+    <source-file src="src/ios/NobotBCLBackend.m" />
+
+    <framework src="CoreLocation.framework" />
+
+    <config-file target="*-Info.plist" parent="NSLocationAlwaysUsageDescription">
+      <string>Your location is used to instantly inform you when you are near a location that is interesting to you.</string>
+    </config-file>
+
+    <config-file target="*-Info.plist" parent="BeaconCtrlBaseURL">
+      <string>https://admin.beaconcontrol.io/api/v1</string>
+    </config-file>
+    <config-file target="*-Info.plist" parent="BeaconCtrlAPIClientId">
+      <string>ClientId</string>
+    </config-file>
+    <config-file target="*-Info.plist" parent="BeaconCtrlAPIClientSecret">
+      <string>ClientSecret</string>
+    </config-file>
+  </platform>
+</plugin>
