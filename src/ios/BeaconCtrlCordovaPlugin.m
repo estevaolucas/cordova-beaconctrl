@@ -62,11 +62,11 @@ static NSDictionary *launchOptions;
 #pragma mark - BCLBeaconCtrlDelegate
 
 - (void)closestObservedBeaconDidChange:(BCLBeacon *)closestBeacon {
-//    NSLog(@"The closest beacon is: %@", closestBeacon.name);
+   NSLog(@"The closest beacon is: %@", closestBeacon.name);
 }
 
 - (void)currentZoneDidChange:(BCLZone *)currentZone {
-//    NSLog(@"You're now in this zone: %@", currentZone.name);
+   NSLog(@"You're now in this zone: %@", currentZone.name);
 }
 
 - (void)didChangeObservedBeacons:(NSSet *)newObservedBeacons {
@@ -77,11 +77,7 @@ static NSDictionary *launchOptions;
     return NO;
 }
 
-- (void)willNotifyAction:(BCLAction *)action {
-//    if (![[BeaconCtrlManager sharedManager] actionCanBePerformed:action saveTimestamp:NO]) {
-//        return;
-//    }
-    
+- (void)notifyAction:(BCLAction *)action {    
     [self fireEvent:@"willNotifyAction" values:[self normalizeAction:action]];
 }
 
@@ -94,9 +90,6 @@ static NSDictionary *launchOptions;
 }
 
 - (void)didPerformAction:(BCLAction *)action {
-//    if (![[BeaconCtrlManager sharedManager] actionCanBePerformed:action saveTimestamp:YES]) {
-//        return;
-//    }
     [self fireEvent:@"didPerformAction" values:[self normalizeAction:action]];
 }
 
@@ -139,9 +132,9 @@ static NSDictionary *launchOptions;
                               @"data": values };
     CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
                                                   messageAsDictionary:result];
-    //[[NSOperationQueue mainQueue] addOperationWithBlock:^ {
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^ {
         [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
-    //}];
+    }];
 }
 
 @end
