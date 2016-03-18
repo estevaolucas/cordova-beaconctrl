@@ -3,7 +3,6 @@
 //
 //  Created by Estevão Lucas on 3/16/16.
 //  Copyright © 2016 nobot. All rights reserved.
-//  Source: https://github.com/katzer/cordova-plugin-local-notifications/blob/master/src/ios/APPLocalNotification.m
 //
 
 #import "BeaconCtrlCordovaPlugin.h"
@@ -16,23 +15,41 @@
 
 @end
 
-
 @implementation BeaconCtrlCordovaPlugin
 
 static NSDictionary *launchOptions;
 
 - (void)startMonitoring:(CDVInvokedUrlCommand *)command {
-    [[BeaconCtrlManager sharedManager] startWithDelegate:self withCompletion:^(BOOL success, NSError *error) {
-        CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    NSDictionary *config = [command.arguments objectAtIndex:0];
+    
+    [self.commandDelegate runInBackground:^{
         
-        if (!success) {
-            pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                                             messageAsString:error.localizedDescription];
+        if (config) {
+            if ([config objectForKey:@"clientId"]) {
+                [BeaconCtrlManager sharedManager].clientId = config[@"clientId"];
+            }
+            
+            if ([config objectForKey:@"clientSecret"]) {
+                [BeaconCtrlManager sharedManager].clientSecret = config[@"clientSecret"];
+            }
         }
         
-        self.callbackId = command.callbackId;
+        // Register for notifications
+        UIUserNotificationType types = (UIUserNotificationTypeBadge|UIUserNotificationTypeSound|UIUserNotificationTypeAlert);
+        UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:types
+                                                                                 categories:nil];
+        [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
         
-        [self.commandDelegate runInBackground:^{
+        
+        [[BeaconCtrlManager sharedManager] startWithDelegate:self withCompletion:^(BOOL success, NSError *error) {
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            
+            if (!success) {
+                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                                 messageAsDictionary:error.userInfo];
+            }
+            
+            self.callbackId = command.callbackId;
             [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
         }];
     }];

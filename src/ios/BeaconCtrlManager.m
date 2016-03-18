@@ -14,7 +14,6 @@
 #import <BeaconCtrl/BCLBeacon.h>
 #import <BeaconCtrl/BCLTrigger.h>
 #import <BeaconCtrl/BCLBeacon.h>
-#import "NobotBCLBackend.h"
 
 NSString * const BeaconManagerReadyForSetupNotification = @"BeaconManagerReadyForSetupNotification";
 NSString * const BeaconManagerDidLogoutNotification = @"BeaconManagerDidLogoutpNotification";
@@ -31,7 +30,6 @@ NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconMana
 
 @property (nonatomic, copy) NSString *pushNotificationDeviceToken;
 @property (nonatomic) BCLBeaconCtrlPushEnvironment pushEnvironment;
-@property (nonatomic, copy) BCLBackend *backend;
 
 @property (nonatomic, readwrite) BOOL isReadyForSetup;
 
@@ -107,39 +105,7 @@ NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconMana
     [[NSNotificationCenter defaultCenter] postNotificationName:BeaconManagerDidLogoutNotification object:self];
 }
 
-- (BCLAction *)testActionForBeacon:(BCLBeacon *)beacon {
-    __block BCLAction *testAction;
-    
-    [beacon.triggers enumerateObjectsUsingBlock:^(BCLTrigger *trigger, NSUInteger triggerIdx, BOOL *triggerStop) {
-        [trigger.actions enumerateObjectsUsingBlock:^(BCLAction *action, NSUInteger actionIdx, BOOL *actionStop) {
-            if (action.isTestAction) {
-                testAction = action;
-                *triggerStop = YES;
-                *actionStop = YES;
-            }
-        }];
-    }];
-    
-    return testAction;
-}
-
-- (BCLBackend *)backend {
-    if (!_backend) {
-        NSString *clientId = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientId"];
-        NSString *clientSecret = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientSecret"];
-
-        _backend = [[NoBotBCLBackend alloc] initWithClientId:clientId
-                                                clientSecret:clientSecret
-                                             pushEnvironment:[[self class] pushEnvironmentNameWithPushEnvironment:self.pushEnvironment]
-                                                   pushToken:self.pushNotificationDeviceToken];
-        
-    }
-    
-    return _backend;
-}
-
-+ (NSString *)pushEnvironmentNameWithPushEnvironment:(BCLBeaconCtrlPushEnvironment)pushEnvironment
-{
++ (NSString *)pushEnvironmentNameWithPushEnvironment:(BCLBeaconCtrlPushEnvironment)pushEnvironment {
     switch(pushEnvironment) {
         case BCLBeaconCtrlPushEnvironmentProduction:
             return @"production";
@@ -152,9 +118,16 @@ NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconMana
 
 - (void)startWithDelegate:(id<BCLBeaconCtrlDelegate>)delegate withCompletion:(void (^)(BOOL, NSError *))completion {
     __typeof__(self) __weak weakSelf = self;
+
+    NSString *clientId = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientId"];
+    NSString *clientSecret = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientSecret"];
     
-    [BCLBeaconCtrl setupBeaconCtrlWithBackend:self.backend completion:^(BCLBeaconCtrl *beaconCtrl, BOOL isRestoredFromCache, NSError *error) {
-        
+    [BCLBeaconCtrl setupBeaconCtrlWithClientId:clientId
+                                  clientSecret:clientSecret
+                                        userId:nil
+                               pushEnvironment:self.pushEnvironment
+                                     pushToken:self.pushNotificationDeviceToken
+                                    completion:^(BCLBeaconCtrl *beaconCtrl, BOOL isRestoredFromCache, NSError *error) {
         dispatch_async(dispatch_get_main_queue(), ^() {
             if (!beaconCtrl) {
                 if (completion) {
@@ -171,6 +144,10 @@ NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconMana
             NSError *beaconMonitoringError;
             if (![beaconCtrl isBeaconCtrlReadyToProcessBeaconActions:&beaconMonitoringError]) {
                 NSLog(@"%@",[beaconMonitoringError localizedDescription]);
+
+                completion(NO, beaconMonitoringError);
+
+                return;
             }
             
             if (completion) {

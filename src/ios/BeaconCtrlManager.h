@@ -27,13 +27,15 @@ extern NSString * const BeaconManagerPropertiesUpdateDidFinishNotification;
 @property (nonatomic, readonly) BOOL isReadyForSetup;
 @property (nonatomic, readonly) BOOL canTryAutoLogin;
 
+@property (strong) NSString *clientId;
+@property (strong) NSString *clientSecret;
+
 + (instancetype)sharedManager;
 
 - (void)refetchBeaconCtrlConfiguration:(void (^)(NSError *error))completion;
 - (void)startWithDelegate:(id<BCLBeaconCtrlDelegate>)delegate withCompletion:(void (^)(BOOL, NSError *))completion;
 - (void)logout;
 
-- (BCLAction *)testActionForBeacon:(BCLBeacon *)beacon;
 - (BOOL)actionCanBePerformed:(BCLAction *)action saveTimestamp:(BOOL)save;
 
 @end
