@@ -1,4 +1,4 @@
-# cordova-plugin-boilerplate
+# cordova-plugin-beaconCtrl
 
 [iOS](https://github.com/upnext/BeaconControl_iOS_SDK) Cordova plugin for [BeaconControl](http://beaconcontrol.io) SDK
 
