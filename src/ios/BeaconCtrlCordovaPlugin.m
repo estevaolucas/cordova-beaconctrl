@@ -45,8 +45,11 @@ static NSDictionary *launchOptions;
             CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
             
             if (!success) {
+                NSDictionary *errorDic = @{@"error": error.localizedDescription,
+                                           @"code": [NSNumber numberWithInt:(int)error.code],
+                                           @"info": error.userInfo};
                 pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
-                                                 messageAsDictionary:error.userInfo];
+                                             messageAsDictionary:errorDic];
             }
             
             self.callbackId = command.callbackId;
@@ -62,11 +65,11 @@ static NSDictionary *launchOptions;
 #pragma mark - BCLBeaconCtrlDelegate
 
 - (void)closestObservedBeaconDidChange:(BCLBeacon *)closestBeacon {
-   NSLog(@"The closest beacon is: %@", closestBeacon.name);
+//   NSLog(@"The closest beacon is: %@", closestBeacon.name);
 }
 
 - (void)currentZoneDidChange:(BCLZone *)currentZone {
-   NSLog(@"You're now in this zone: %@", currentZone.name);
+//   NSLog(@"You're now in this zone: %@", currentZone.name);
 }
 
 - (void)didChangeObservedBeacons:(NSSet *)newObservedBeacons {

@@ -119,11 +119,8 @@ NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconMana
 - (void)startWithDelegate:(id<BCLBeaconCtrlDelegate>)delegate withCompletion:(void (^)(BOOL, NSError *))completion {
     __typeof__(self) __weak weakSelf = self;
 
-    NSString *clientId = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientId"];
-    NSString *clientSecret = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"BeaconCtrlAPIClientSecret"];
-    
-    [BCLBeaconCtrl setupBeaconCtrlWithClientId:clientId
-                                  clientSecret:clientSecret
+    [BCLBeaconCtrl setupBeaconCtrlWithClientId:self.clientId
+                                  clientSecret:self.clientSecret
                                         userId:nil
                                pushEnvironment:self.pushEnvironment
                                      pushToken:self.pushNotificationDeviceToken

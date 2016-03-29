@@ -29,18 +29,21 @@ BeaconCtrl.prototype.start = function(config) {
       cordova.fireDocumentEvent(result.type, result.data || {});
     }
   }, function (e) {
+    console.log('Error initializing BeaconControl: ' + e);
+    
     var userInfo = e.info,
-      newError = [];
+      data = [];
 
     for (var key in userInfo) {
-      newError.push({
+      data.push({
         code: key,
         message: userInfo[key]
       });
     }
 
-    console.log('Error initializing BeaconControl: ' + e);
-    cordova.fireDocumentEvent('error', newError);
+    e.data = data
+
+    cordova.fireDocumentEvent('error', e);
   });
 }
 
