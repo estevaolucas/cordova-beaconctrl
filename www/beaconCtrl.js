@@ -21,16 +21,18 @@ BeaconCtrl.prototype.stopMonitoring = function(successCallback, errorCallback) {
       );
 };
 
-BeaconCtrl.prototype.start = function(config) {
+BeaconCtrl.prototype.start = function(config, callback) {
   var config = config || {};
 
   this.startMonitoring(config, function(result) {
-    if (result.type) {
+    if (result && result.type) {
       cordova.fireDocumentEvent(result.type, result.data || {});
+    } else {
+      callback();
     }
   }, function (e) {
     console.log('Error initializing BeaconControl: ' + e);
-    
+
     var userInfo = e.info,
       data = [];
 
@@ -42,15 +44,17 @@ BeaconCtrl.prototype.start = function(config) {
     }
 
     e.data = data
-
+    
+    callback();
     cordova.fireDocumentEvent('error', e);
   });
 }
 
 var plugin = new BeaconCtrl();
 
-exports.start = function(config) {
-  plugin.start(config);
+exports.start = function(config, callback) {
+  var callback = callback || function() {};
+  plugin.start(config, callback);
 }
 
 exports.stop = function() {

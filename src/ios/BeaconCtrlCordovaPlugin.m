@@ -42,7 +42,7 @@ static NSDictionary *launchOptions;
         
         
         [[BeaconCtrlManager sharedManager] startWithDelegate:self withCompletion:^(BOOL success, NSError *error) {
-            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{ @"type": @NO}];
             
             if (!success) {
                 NSDictionary *errorDic = @{@"error": error.localizedDescription,
