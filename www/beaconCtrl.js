@@ -27,7 +27,9 @@ BeaconCtrl.prototype.start = function(config, callback) {
   this.startMonitoring(config, function(result) {
     if (result && result.type) {
       cordova.fireDocumentEvent(result.type, result.data || {});
-    } else {
+    }
+
+    if (!result || result.type == 'started') {
       callback();
     }
   }, function (e) {
