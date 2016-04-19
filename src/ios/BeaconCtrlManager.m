@@ -1,239 +1,142 @@
 //
-//  BeaconCtrlManager.m
-//  BCLRemoteApp
+//  BeaconCtrlCordovaPlugin.m
 //
-// Copyright (c) 2015, Upnext Technologies Sp. z o.o.
-// All rights reserved.
-//
-// This source code is licensed under the BSD 3-Clause License found in the
-// LICENSE.txt file in the root directory of this source tree.
+//  Created by Estevão Lucas on 3/16/16.
+//  Copyright © 2016 nobot. All rights reserved.
 //
 
-#import "BeaconCtrlManager.h"
-#import "AppDelegate.h"
-#import <BeaconCtrl/BCLBeacon.h>
-#import <BeaconCtrl/BCLTrigger.h>
-#import <BeaconCtrl/BCLBeacon.h>
+#import "BeaconCtrlCordovaPlugin.h"
+#import <Cordova/CDV.h>
+#import <UNNetworking/UNCodingUtil.h>
 
-NSString * const BeaconManagerReadyForSetupNotification = @"BeaconManagerReadyForSetupNotification";
-NSString * const BeaconManagerDidLogoutNotification = @"BeaconManagerDidLogoutpNotification";
-NSString * const BeaconManagerDidFetchBeaconCtrlConfigurationNotification = @"BeaconManagerDidFetchBeaconCtrlConfigurationNotification";
-NSString * const BeaconManagerClosestBeaconDidChangeNotification = @"BeaconManagerClosestBeaconDidChangeNotification";
-NSString * const BeaconManagerCurrentZoneDidChangeNotification = @"BeaconManagerCurrentZoneDidChangeNotification";
-NSString * const BeaconManagerPropertiesUpdateDidStartNotification = @"BeaconManagerPropertiesUpdateDidStartNotification";
-NSString * const BeaconManagerPropertiesUpdateDidFinishNotification = @"BeaconManagerPropertiesUpdateDidFinishNotification";
-NSString * const BeaconManagerFirmwareUpdateDidStartNotification = @"BeaconManagerFirmwareUpdateDidStartNotification";
-NSString * const BeaconManagerFirmwareUpdateDidProgressNotification = @"BeaconManagerFirmwareUpdateDidProgresstNotification";
-NSString * const BeaconManagerFirmwareUpdateDidFinishNotification = @"BeaconManagerFirmwareUpdateDidFinishNotification";
+@interface BeaconCtrlCordovaPlugin ()
 
-@interface BeaconCtrlManager ()
-
-@property (nonatomic, copy) NSString *pushNotificationDeviceToken;
-@property (nonatomic) BCLBeaconCtrlPushEnvironment pushEnvironment;
-
-@property (nonatomic, readwrite) BOOL isReadyForSetup;
+@property (strong) NSString *callbackId;
 
 @end
 
-@implementation BeaconCtrlManager
+@implementation BeaconCtrlCordovaPlugin
 
-- (instancetype)init {
-    if (self = [super init]) {
-        NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+static NSDictionary *launchOptions;
+
+- (void)startMonitoring:(CDVInvokedUrlCommand *)command {
+    NSDictionary *config = [command.arguments objectAtIndex:0];
+    
+    if (config) {
+        if ([config objectForKey:@"clientId"]) {
+            [BeaconCtrlManager sharedManager].clientId = config[@"clientId"];
+        }
         
-        [nc addObserver:self
-               selector:@selector(didRegisterForRemoteNotifications:)
-                   name:CDVRemoteNotification
-                 object:nil];
-        
-        [nc addObserver:self
-               selector:@selector(didFailToRegisterRegisterForRemoteNotifications:)
-                   name:CDVRemoteNotificationError
-                 object:nil];
-        
-        NSUserDefaults *stantardUserDefaults = [NSUserDefaults standardUserDefaults];
-        [stantardUserDefaults setInteger:10 forKey:@"BCLRemoteAppMaxFloorNumber"];
-        [stantardUserDefaults synchronize];
-        
-        // FIXME: get real value
-        _isReadyForSetup = YES; //((AppDelegate *)[UIApplication sharedApplication].delegate).isRemoteNotificationSetupReady;
+        if ([config objectForKey:@"clientSecret"]) {
+            [BeaconCtrlManager sharedManager].clientSecret = config[@"clientSecret"];
+        }
     }
     
-    return self;
-}
-
-+ (instancetype)sharedManager {
-    static BeaconCtrlManager *sharedManager = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sharedManager = [[BeaconCtrlManager alloc] init];
-    });
-    return sharedManager;
-}
-
-- (void)refetchBeaconCtrlConfiguration:(void (^)(NSError *error))completion {
-    __typeof__(self) __weak weakSelf = self;
+    // Register for notifications
+    UIUserNotificationType types = (UIUserNotificationTypeBadge|UIUserNotificationTypeSound|UIUserNotificationTypeAlert);
+    UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:types
+                                                                             categories:nil];
+    [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
+    [[UIApplication sharedApplication] registerForRemoteNotifications];
     
-    [self.beaconCtrl fetchConfiguration:^(NSError *error) {
-        if (!error) {
-            [[NSNotificationCenter defaultCenter] postNotificationName:BeaconManagerDidFetchBeaconCtrlConfigurationNotification object:weakSelf];
-        }
-        
-        [weakSelf.beaconCtrl updateMonitoredBeacons];
-        
-        if (completion) {
-            completion(error);
-        }
+    [[BeaconCtrlManager sharedManager] startWithDelegate:self withCompletion:^(BOOL success, NSError *error) {
+        [self.commandDelegate runInBackground:^{
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:@{ @"type": @"started"}];
+            
+            if (!success) {
+                NSDictionary *errorDic = @{@"error": error.localizedDescription,
+                                           @"code": [NSNumber numberWithInt:(int)error.code],
+                                           @"info": error.userInfo};
+                pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR
+                                             messageAsDictionary:errorDic];
+            }
+            
+            [pluginResult setKeepCallback:@YES];
+            self.callbackId = command.callbackId;
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
+        }];
     }];
 }
 
-- (void)setIsReadyForSetup:(BOOL)isReadyForSetup {
-    if (_isReadyForSetup == NO && isReadyForSetup == YES) {
-        [[NSNotificationCenter defaultCenter] postNotificationName:BeaconManagerReadyForSetupNotification object:self];
-    }
-    
-    _isReadyForSetup = isReadyForSetup;
+- (void)stopMonitoring {
+    [[BeaconCtrlManager sharedManager] logout];
 }
 
-- (void)logout {
-    [self.beaconCtrl stopMonitoringBeacons];
-    [self.beaconCtrl logout];
-    
-    self.beaconCtrl.delegate = nil;
-    self.beaconCtrl = nil;
-    
-    [[NSNotificationCenter defaultCenter] postNotificationName:BeaconManagerDidLogoutNotification object:self];
+#pragma mark - BCLBeaconCtrlDelegate
+
+- (void)closestObservedBeaconDidChange:(BCLBeacon *)closestBeacon {
+//   NSLog(@"The closest beacon is: %@", closestBeacon.name);
 }
 
-+ (NSString *)pushEnvironmentNameWithPushEnvironment:(BCLBeaconCtrlPushEnvironment)pushEnvironment {
-    switch(pushEnvironment) {
-        case BCLBeaconCtrlPushEnvironmentProduction:
-            return @"production";
-        case BCLBeaconCtrlPushEnvironmentSandbox:
-            return @"sandbox";
-        default:
-            return nil;
-    }
+- (void)currentZoneDidChange:(BCLZone *)currentZone {
+//   NSLog(@"You're now in this zone: %@", currentZone.name);
 }
 
-- (void)startWithDelegate:(id<BCLBeaconCtrlDelegate>)delegate withCompletion:(void (^)(BOOL, NSError *))completion {
-    __typeof__(self) __weak weakSelf = self;
-
-    [BCLBeaconCtrl setupBeaconCtrlWithClientId:self.clientId
-                                  clientSecret:self.clientSecret
-                                        userId:nil
-                               pushEnvironment:self.pushEnvironment
-                                     pushToken:self.pushNotificationDeviceToken
-                                    completion:^(BCLBeaconCtrl *beaconCtrl, BOOL isRestoredFromCache, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^() {
-            if (!beaconCtrl) {
-                if (completion) {
-                    completion(NO, error);
-                    return;
-                }
-            }
-            
-            weakSelf.beaconCtrl = beaconCtrl;
-            beaconCtrl.delegate = delegate;
-            
-            [beaconCtrl startMonitoringBeacons];
-            
-            NSError *beaconMonitoringError;
-            if (![beaconCtrl isBeaconCtrlReadyToProcessBeaconActions:&beaconMonitoringError]) {
-                NSLog(@"%@",[beaconMonitoringError localizedDescription]);
-
-                completion(NO, beaconMonitoringError);
-
-                return;
-            }
-            
-            if (completion) {
-                completion(YES, nil);
-            }
-        });
-    }];
+- (void)didChangeObservedBeacons:(NSSet *)newObservedBeacons {
+    NSLog(@"Changed observed beacons: %@", [newObservedBeacons allObjects]);
 }
 
-- (NSDictionary *)normalizeCustomValuesForAction:(BCLAction *)action {
-    NSMutableDictionary *tempCustomValues = [[NSMutableDictionary alloc] init];
-    
-    [action.customValues enumerateObjectsUsingBlock:^(NSDictionary *pair, NSUInteger idx, BOOL *stop) {
-        NSString *name = pair[@"name"];
-        NSString *value = pair[@"value"];
-        
-        tempCustomValues[name] = value;
-    }];
-    
-    return [tempCustomValues copy];
+- (BOOL)shouldAutomaticallyNotifyAction:(BCLAction *)action {
+    return NO;
 }
 
-- (BOOL)actionCanBePerformed:(BCLAction *)action saveTimestamp:(BOOL)save {
-    NSDictionary *values = [self normalizeCustomValuesForAction:action];
-    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    
-    NSString *timestampKey = [NSString stringWithFormat:@"timestamp-%@", action.name];
-    NSNumber *actionTimestampValue = values[@"timestamp"];
-    NSDate *actionTimestampStored = [userDefaults objectForKey:timestampKey];
-    
-    // there is timestamp for this action
-    if (actionTimestampValue) {
-        // alredy save same value
-        if (actionTimestampStored) {
-            int now = [[NSDate new] timeIntervalSince1970];
-            int stored = [actionTimestampStored timeIntervalSince1970];
-            
-            // already did the action
-            NSLog(@"----- Checkin time difference: %ld", (stored + [actionTimestampValue integerValue] - now));
-            if ((stored + [actionTimestampValue integerValue]) > now) {
-                return NO;
-            }
-        }
-        
-        // save this action's time
-        if (save) {
-            [userDefaults setObject:[NSDate new] forKey:timestampKey];
-        }
-    }
-    
+- (void)notifyAction:(BCLAction *)action {    
+    [self fireEvent:@"notifyAction" values:[self normalizeAction:action]];
+}
+
+- (BOOL)shouldAutomaticallyPerformAction:(BCLAction *)action {
     return YES;
 }
 
-#pragma mark - Private
-- (UIViewController *)topViewController {
-    return [self topViewController:[UIApplication sharedApplication].keyWindow.rootViewController];
+- (void)willPerformAction:(BCLAction *)action {
+    [self fireEvent:@"willPerformAction" values:[self normalizeAction:action]];
 }
 
-- (UIViewController *)topViewController:(UIViewController *)rootViewController {
-    if (rootViewController.presentedViewController == nil) {
-        return rootViewController;
-    }
-    
-    if ([rootViewController.presentedViewController isMemberOfClass:[UINavigationController class]]) {
-        UINavigationController *navigationController = (UINavigationController *)rootViewController.presentedViewController;
-        UIViewController *lastViewController = [[navigationController viewControllers] lastObject];
-        return [self topViewController:lastViewController];
-    }
-    
-    UIViewController *presentedViewController = (UIViewController *)rootViewController.presentedViewController;
-    return [self topViewController:presentedViewController];
+- (void)didPerformAction:(BCLAction *)action {
+    [self fireEvent:@"didPerformAction" values:[self normalizeAction:action]];
 }
 
-- (void)didRegisterForRemoteNotifications:(NSNotification *)notification {
-    self.isReadyForSetup = YES;
-    
-#ifdef DEBUG
-    self.pushEnvironment = BCLBeaconCtrlPushEnvironmentSandbox;
-#else
-    self.pushEnvironment = BCLBeaconCtrlPushEnvironmentProduction;
-#endif
-    self.pushNotificationDeviceToken = notification.userInfo[@"deviceToken"];
+- (void)beaconsPropertiesUpdateDidStart:(BCLBeacon *)beacon {
+    // TODO implement
 }
 
-- (void)didFailToRegisterRegisterForRemoteNotifications:(NSNotification *)notification {
-    self.isReadyForSetup = YES;
+- (void)beaconsPropertiesUpdateDidFinish:(BCLBeacon *)beacon success:(BOOL)success {
+    // TODO implement
+}
+
+- (void)beaconsFirmwareUpdateDidStart:(BCLBeacon *)beacon {
+    // TODO implement
+}
+
+- (void)beaconsFirmwareUpdateDidProgress:(BCLBeacon *)beacon progress:(NSUInteger)progress {
+    // TODO implement
+}
+
+- (void)beaconsFirmwareUpdateDidFinish:(BCLBeacon *)beacon success:(BOOL)success {
+    // TODO implement
+}
+
+- (NSDictionary *)normalizeAction:(BCLAction *)action {
+    // FIXME: return action.trigger to
+    NSDictionary *a = @{
+                        @"id": action.identifier,
+                        @"name": action.name,
+                        @"type": action.type,
+                        @"isTestAction": [NSNumber numberWithBool:action.isTestAction],
+                        @"customValues": action.customValues,
+                        @"payload": action.payload
+                        };
     
-    self.pushEnvironment = BCLBeaconCtrlPushEnvironmentNone;
-    self.pushNotificationDeviceToken = nil;
+    return a;
+}
+
+- (void)fireEvent:(NSString *)event values:(NSDictionary *)values {
+    NSDictionary *result = @{ @"type": event,
+                              @"data": values };
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
+                                                  messageAsDictionary:result];
+    [pluginResult setKeepCallback:@YES];
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:self.callbackId];
 }
 
 @end
